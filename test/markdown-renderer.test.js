@@ -87,5 +87,23 @@ describe('markdown-renderer tests', () => {
     it('should render combined bold and italic', () => {
       assert.ok(renderMarkdown('***bold italic***').includes('<strong><em>bold italic</em></strong>'));
     });
+
+    it('should block javascript: URLs in links', () => {
+      const result = renderMarkdown('[click me](javascript:alert("xss"))');
+      assert.ok(!result.includes('href="javascript:'));
+      assert.ok(result.includes('click me'));
+    });
+
+    it('should allow safe URLs in links', () => {
+      assert.ok(renderMarkdown('[link](https://example.com)').includes('href="https://example.com"'));
+      assert.ok(renderMarkdown('[link](http://example.com)').includes('href="http://example.com"'));
+      assert.ok(renderMarkdown('[link](/path/to/page)').includes('href="/path/to/page"'));
+      assert.ok(renderMarkdown('[link](./relative)').includes('href="./relative"'));
+    });
+
+    it('should render blockquotes with optional whitespace', () => {
+      assert.ok(renderMarkdown('>no space').includes('<blockquote>no space</blockquote>'));
+      assert.ok(renderMarkdown('> with space').includes('<blockquote>with space</blockquote>'));
+    });
   });
 });

@@ -119,7 +119,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
         }
       },
       onEditorInput(e) {
-        this.state.editContent = e.target.value;
+        this.update({ editContent: e.target.value });
       },
       saveReadme() {
         const content = this.state.editContent;

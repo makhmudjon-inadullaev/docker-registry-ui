@@ -27,7 +27,8 @@ export function renderMarkdown(markdown) {
   }
 
   // Process blockquotes before escaping (since > is escaped)
-  let html = markdown.replace(/^>\s+(.*)$/gm, '{{BLOCKQUOTE_START}}$1{{BLOCKQUOTE_END}}');
+  // Allow optional whitespace after > to support both "> text" and ">text"
+  let html = markdown.replace(/^>\s*(.*)$/gm, '{{BLOCKQUOTE_START}}$1{{BLOCKQUOTE_END}}');
 
   html = escapeHtml(html);
 
@@ -63,11 +64,21 @@ export function renderMarkdown(markdown) {
   html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
   html = html.replace(/_(.+?)_/g, '<em>$1</em>');
 
-  // Images (must be before links)
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+  // Images (must be before links) - only allow safe protocols
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+    if (isSafeUrl(url)) {
+      return `<img src="${url}" alt="${alt}">`;
+    }
+    return match; // Return original if URL is unsafe
+  });
 
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  // Links - only allow safe protocols
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+    if (isSafeUrl(url)) {
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    }
+    return text; // Return just the text if URL is unsafe
+  });
 
   // Unordered lists - mark items first
   html = html.replace(/^[\*\-]\s+(.*)$/gm, '{{UL_ITEM}}$1{{/UL_ITEM}}');
@@ -120,6 +131,27 @@ function escapeHtml(text) {
 }
 
 /**
+ * Check if a URL uses a safe protocol
+ * @param {string} url - URL to validate
+ * @returns {boolean} - True if URL is safe
+ */
+function isSafeUrl(url) {
+  if (!url) return false;
+  const trimmedUrl = url.trim().toLowerCase();
+  // Allow relative URLs, http, https, mailto, and data URLs for images
+  return (
+    trimmedUrl.startsWith('http://') ||
+    trimmedUrl.startsWith('https://') ||
+    trimmedUrl.startsWith('mailto:') ||
+    trimmedUrl.startsWith('data:image/') ||
+    trimmedUrl.startsWith('/') ||
+    trimmedUrl.startsWith('./') ||
+    trimmedUrl.startsWith('../') ||
+    !trimmedUrl.includes(':') // Relative URL without protocol
+  );
+}
+
+/**
  * Process markdown tables
  * @param {string} html - HTML with table markdown
  * @returns {string} - HTML with rendered tables
@@ -128,11 +160,11 @@ function processTable(html) {
   const tableRegex = /^(\|.+\|)\n(\|[-:| ]+\|)\n((?:\|.+\|\n?)+)/gm;
   
   return html.replace(tableRegex, (match, headerRow, separator, bodyRows) => {
-    // Parse header
+    // Parse header - content is already escaped since we call escapeHtml earlier
     const headers = headerRow.split('|').filter(cell => cell.trim());
     const headerHtml = headers.map(h => `<th>${h.trim()}</th>`).join('');
     
-    // Parse body rows
+    // Parse body rows - content is already escaped
     const rows = bodyRows.trim().split('\n');
     const bodyHtml = rows.map(row => {
       const cells = row.split('|').filter(cell => cell.trim());
