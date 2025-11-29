@@ -84,6 +84,12 @@ describe('markdown-renderer tests', () => {
       assert.ok(result.includes('&lt;script&gt;'));
     });
 
+    it('should escape quotes in text', () => {
+      const result = renderMarkdown('He said "hello" and \'goodbye\'');
+      assert.ok(result.includes('&quot;hello&quot;'));
+      assert.ok(result.includes('&#x27;goodbye&#x27;'));
+    });
+
     it('should render combined bold and italic', () => {
       assert.ok(renderMarkdown('***bold italic***').includes('<strong><em>bold italic</em></strong>'));
     });

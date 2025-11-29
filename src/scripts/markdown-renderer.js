@@ -126,8 +126,10 @@ function escapeHtml(text) {
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#x27;',
   };
-  return text.replace(/[&<>]/g, char => map[char]);
+  return text.replace(/[&<>"']/g, char => map[char]);
 }
 
 /**
@@ -161,13 +163,14 @@ function processTable(html) {
   
   return html.replace(tableRegex, (match, headerRow, separator, bodyRows) => {
     // Parse header - content is already escaped since we call escapeHtml earlier
-    const headers = headerRow.split('|').filter(cell => cell.trim());
+    // Use slice to remove empty strings from leading/trailing pipes while preserving empty cells
+    const headers = headerRow.split('|').slice(1, -1);
     const headerHtml = headers.map(h => `<th>${h.trim()}</th>`).join('');
     
     // Parse body rows - content is already escaped
     const rows = bodyRows.trim().split('\n');
     const bodyHtml = rows.map(row => {
-      const cells = row.split('|').filter(cell => cell.trim());
+      const cells = row.split('|').slice(1, -1);
       return '<tr>' + cells.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>';
     }).join('');
     
