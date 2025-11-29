@@ -105,8 +105,8 @@ export function renderMarkdown(markdown) {
   html = html.split('\n\n').map(block => {
     block = block.trim();
     if (!block) return '';
-    // Don't wrap if already a block element
-    if (/^<(h[1-6]|ul|ol|li|pre|blockquote|table|hr|p)/.test(block)) {
+    // Don't wrap if already a block element (check for opening tags only)
+    if (/^<(h[1-6]|ul|ol|li|pre|blockquote|table|hr|p)[\s>]/.test(block)) {
       return block;
     }
     // Replace single newlines with <br> and wrap in paragraph
@@ -163,14 +163,16 @@ function processTable(html) {
   
   return html.replace(tableRegex, (match, headerRow, separator, bodyRows) => {
     // Parse header - content is already escaped since we call escapeHtml earlier
-    // Use slice to remove empty strings from leading/trailing pipes while preserving empty cells
-    const headers = headerRow.split('|').slice(1, -1);
+    // Validate and use slice to extract cells between pipes
+    const headerParts = headerRow.split('|');
+    const headers = headerParts.length >= 3 ? headerParts.slice(1, -1) : headerParts;
     const headerHtml = headers.map(h => `<th>${h.trim()}</th>`).join('');
     
     // Parse body rows - content is already escaped
     const rows = bodyRows.trim().split('\n');
     const bodyHtml = rows.map(row => {
-      const cells = row.split('|').slice(1, -1);
+      const rowParts = row.split('|');
+      const cells = rowParts.length >= 3 ? rowParts.slice(1, -1) : rowParts;
       return '<tr>' + cells.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>';
     }).join('');
     
