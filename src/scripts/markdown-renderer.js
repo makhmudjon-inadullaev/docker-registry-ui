@@ -1,0 +1,133 @@
+/*
+ * Copyright (C) 2016-2023 Jones Magloire @Joxit
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/**
+ * Simple markdown renderer
+ * Supports: headers, bold, italic, code, links, images, lists, blockquotes, horizontal rules
+ * @param {string} markdown - Raw markdown text
+ * @returns {string} - Rendered HTML
+ */
+export function renderMarkdown(markdown) {
+  if (!markdown) {
+    return '';
+  }
+
+  // Process blockquotes before escaping (since > is escaped)
+  let html = markdown.replace(/^>\s+(.*)$/gm, '{{BLOCKQUOTE_START}}$1{{BLOCKQUOTE_END}}');
+
+  html = escapeHtml(html);
+
+  // Restore blockquotes
+  html = html.replace(/\{\{BLOCKQUOTE_START\}\}(.*?)\{\{BLOCKQUOTE_END\}\}/g, '<blockquote>$1</blockquote>');
+  // Merge consecutive blockquotes
+  html = html.replace(/<\/blockquote>\n<blockquote>/g, '\n');
+
+  // Code blocks (must be done before other processing)
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    return `<pre><code class="language-${lang}">${code.trim()}</code></pre>`;
+  });
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Headers (must be done after code blocks to avoid conflicts)
+  html = html.replace(/^######\s+(.*)$/gm, '<h6>$1</h6>');
+  html = html.replace(/^#####\s+(.*)$/gm, '<h5>$1</h5>');
+  html = html.replace(/^####\s+(.*)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^###\s+(.*)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^##\s+(.*)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^#\s+(.*)$/gm, '<h1>$1</h1>');
+
+  // Horizontal rule
+  html = html.replace(/^[-*_]{3,}$/gm, '<hr>');
+
+  // Bold and italic
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/___(.+?)___/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+
+  // Images (must be before links)
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // Unordered lists
+  html = html.replace(/^[\*\-]\s+(.*)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+
+  // Ordered lists
+  html = html.replace(/^\d+\.\s+(.*)$/gm, '<li>$1</li>');
+
+  // Tables
+  html = processTable(html);
+
+  // Paragraphs - wrap non-tag text in paragraphs
+  html = html.split('\n\n').map(block => {
+    block = block.trim();
+    if (!block) return '';
+    // Don't wrap if already a block element
+    if (/^<(h[1-6]|ul|ol|li|pre|blockquote|table|hr|p)/.test(block)) {
+      return block;
+    }
+    // Replace single newlines with <br> and wrap in paragraph
+    return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
+  }).join('\n');
+
+  return html;
+}
+
+/**
+ * Escape HTML special characters
+ * @param {string} text - Raw text
+ * @returns {string} - Escaped text
+ */
+function escapeHtml(text) {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+  };
+  return text.replace(/[&<>]/g, char => map[char]);
+}
+
+/**
+ * Process markdown tables
+ * @param {string} html - HTML with table markdown
+ * @returns {string} - HTML with rendered tables
+ */
+function processTable(html) {
+  const tableRegex = /^(\|.+\|)\n(\|[-:| ]+\|)\n((?:\|.+\|\n?)+)/gm;
+  
+  return html.replace(tableRegex, (match, headerRow, separator, bodyRows) => {
+    // Parse header
+    const headers = headerRow.split('|').filter(cell => cell.trim());
+    const headerHtml = headers.map(h => `<th>${h.trim()}</th>`).join('');
+    
+    // Parse body rows
+    const rows = bodyRows.trim().split('\n');
+    const bodyHtml = rows.map(row => {
+      const cells = row.split('|').filter(cell => cell.trim());
+      return '<tr>' + cells.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>';
+    }).join('');
+    
+    return `<table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+  });
+}
