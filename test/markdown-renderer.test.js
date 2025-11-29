@@ -58,6 +58,14 @@ describe('markdown-renderer tests', () => {
       assert.ok(result.includes('<li>item 2</li>'));
     });
 
+    it('should render ordered lists', () => {
+      const result = renderMarkdown('1. first\n2. second\n3. third');
+      assert.ok(result.includes('<ol>'));
+      assert.ok(result.includes('<li>first</li>'));
+      assert.ok(result.includes('<li>second</li>'));
+      assert.ok(result.includes('<li>third</li>'));
+    });
+
     it('should render blockquotes', () => {
       const result = renderMarkdown('> quote text');
       assert.ok(result.includes('<blockquote>'));

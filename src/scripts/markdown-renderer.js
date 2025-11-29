@@ -69,12 +69,23 @@ export function renderMarkdown(markdown) {
   // Links
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 
-  // Unordered lists
-  html = html.replace(/^[\*\-]\s+(.*)$/gm, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-
-  // Ordered lists
-  html = html.replace(/^\d+\.\s+(.*)$/gm, '<li>$1</li>');
+  // Unordered lists - mark items first
+  html = html.replace(/^[\*\-]\s+(.*)$/gm, '{{UL_ITEM}}$1{{/UL_ITEM}}');
+  
+  // Ordered lists - mark items first
+  html = html.replace(/^\d+\.\s+(.*)$/gm, '{{OL_ITEM}}$1{{/OL_ITEM}}');
+  
+  // Wrap consecutive unordered list items
+  html = html.replace(/({{UL_ITEM}}.*?{{\/UL_ITEM}}\n?)+/g, (match) => {
+    const items = match.replace(/{{UL_ITEM}}(.*?){{\/UL_ITEM}}/g, '<li>$1</li>');
+    return '<ul>' + items + '</ul>';
+  });
+  
+  // Wrap consecutive ordered list items
+  html = html.replace(/({{OL_ITEM}}.*?{{\/OL_ITEM}}\n?)+/g, (match) => {
+    const items = match.replace(/{{OL_ITEM}}(.*?){{\/OL_ITEM}}/g, '<li>$1</li>');
+    return '<ol>' + items + '</ol>';
+  });
 
   // Tables
   html = processTable(html);
