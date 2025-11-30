@@ -29,12 +29,14 @@ const REGISTRY_READMES_PATH = process.env.REGISTRY_READMES_PATH || 'docker/regis
 const STATIC_DIR = path.resolve(process.env.STATIC_DIR || path.join(__dirname, '../dist'));
 
 // Frontend configuration environment variables (for index.html placeholder substitution)
+// Note: REGISTRY_URL is intentionally left empty so the frontend uses the same host
+// and the backend proxies /v2/* requests to the actual registry (avoiding CORS issues)
 const FRONTEND_CONFIG = {
   DOCKER_REGISTRY_UI_TITLE: process.env.DOCKER_REGISTRY_UI_TITLE || '',
-  REGISTRY_URL: process.env.REGISTRY_URL || '',
+  REGISTRY_URL: '', // Empty so frontend uses same host for /v2/* requests (proxied by backend)
   REGISTRY_TITLE: process.env.REGISTRY_TITLE || '',
   PULL_URL: process.env.PULL_URL || '',
-  SINGLE_REGISTRY: process.env.SINGLE_REGISTRY || '',
+  SINGLE_REGISTRY: process.env.SINGLE_REGISTRY || 'true', // Default to single registry mode
   CATALOG_ELEMENTS_LIMIT: process.env.CATALOG_ELEMENTS_LIMIT || '',
   SHOW_CONTENT_DIGEST: process.env.SHOW_CONTENT_DIGEST || '',
   SHOW_TAG_HISTORY: process.env.SHOW_TAG_HISTORY || '',
