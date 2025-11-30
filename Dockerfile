@@ -12,19 +12,28 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-FROM nginx:alpine-slim
+FROM node:20-alpine
 
 LABEL maintainer="Jones MAGLOIRE @Joxit"
 
-WORKDIR /usr/share/nginx/html/
+WORKDIR /app
 
-ENV NGINX_PROXY_HEADER_Host '$http_host'
-ENV NGINX_LISTEN_PORT '80'
-ENV SHOW_CATALOG_NB_TAGS 'false'
+# Environment variables
+ENV PORT=80
+ENV REGISTRY_URL=''
+ENV NGINX_PROXY_PASS_URL=''
+ENV REGISTRY_DATA_PATH='/var/lib/registry'
+ENV REGISTRY_READMES_PATH='docker/registry/v2/repositories'
+ENV STATIC_DIR='/app/dist'
 
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
-COPY bin/90-docker-registry-ui.sh /docker-entrypoint.d/90-docker-registry-ui.sh
-COPY dist/ /usr/share/nginx/html/
-COPY favicon.ico /usr/share/nginx/html/
+# Copy server and static files
+COPY server/ /app/server/
+COPY dist/ /app/dist/
+COPY favicon.ico /app/dist/
 
-RUN chown -R nginx:nginx /etc/nginx/ /usr/share/nginx/html/ /var/cache/nginx /var/log/nginx
+# Create directory for registry data
+RUN mkdir -p /var/lib/registry
+
+EXPOSE 80
+
+CMD ["node", "/app/server/index.cjs"]

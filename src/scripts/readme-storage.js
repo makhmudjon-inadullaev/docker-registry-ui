@@ -15,69 +15,77 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const README_STORAGE_KEY = 'imageReadme';
-
 /**
- * Generate a storage key for a specific image
- * @param {string} registryUrl - Registry URL
- * @param {string} imageName - Image name (repository)
- * @returns {string} - Unique key for the image README
+ * Get the API base URL for README endpoints
+ * @returns {string} - Base URL for API calls
  */
-export function getReadmeKey(registryUrl, imageName) {
-  return `${README_STORAGE_KEY}:${registryUrl}:${imageName}`;
+function getApiBaseUrl() {
+  return window.location.origin;
 }
 
 /**
- * Get README content for a specific image
- * @param {string} registryUrl - Registry URL
+ * Get README content for a specific image from the backend API
+ * @param {string} registryUrl - Registry URL (not used, kept for API compatibility)
  * @param {string} imageName - Image name (repository)
- * @returns {string|null} - README content or null if not found
+ * @returns {Promise<string|null>} - README content or null if not found
  */
-export function getReadmeContent(registryUrl, imageName) {
+export async function getReadmeContent(registryUrl, imageName) {
   try {
-    const key = getReadmeKey(registryUrl, imageName);
-    return localStorage.getItem(key);
+    const encodedImageName = encodeURIComponent(imageName);
+    const response = await fetch(`${getApiBaseUrl()}/api/readme/${encodedImageName}`);
+    
+    if (response.ok) {
+      const content = await response.text();
+      return content || null;
+    }
+    return null;
   } catch (e) {
-    console.error('Error reading README from localStorage:', e);
+    console.error('Error reading README from API:', e);
     return null;
   }
 }
 
 /**
- * Save README content for a specific image
- * @param {string} registryUrl - Registry URL
+ * Save README content for a specific image via the backend API
+ * @param {string} registryUrl - Registry URL (not used, kept for API compatibility)
  * @param {string} imageName - Image name (repository)
  * @param {string} content - README markdown content
- * @returns {boolean} - True if save was successful
+ * @returns {Promise<boolean>} - True if save was successful
  */
-export function saveReadmeContent(registryUrl, imageName, content) {
+export async function saveReadmeContent(registryUrl, imageName, content) {
   try {
-    const key = getReadmeKey(registryUrl, imageName);
-    if (content && content.trim()) {
-      localStorage.setItem(key, content);
-    } else {
-      localStorage.removeItem(key);
-    }
-    return true;
+    const encodedImageName = encodeURIComponent(imageName);
+    const response = await fetch(`${getApiBaseUrl()}/api/readme/${encodedImageName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+      body: content || '',
+    });
+    
+    return response.ok;
   } catch (e) {
-    console.error('Error saving README to localStorage:', e);
+    console.error('Error saving README to API:', e);
     return false;
   }
 }
 
 /**
- * Delete README content for a specific image
- * @param {string} registryUrl - Registry URL
+ * Delete README content for a specific image via the backend API
+ * @param {string} registryUrl - Registry URL (not used, kept for API compatibility)
  * @param {string} imageName - Image name (repository)
- * @returns {boolean} - True if delete was successful
+ * @returns {Promise<boolean>} - True if delete was successful
  */
-export function deleteReadmeContent(registryUrl, imageName) {
+export async function deleteReadmeContent(registryUrl, imageName) {
   try {
-    const key = getReadmeKey(registryUrl, imageName);
-    localStorage.removeItem(key);
-    return true;
+    const encodedImageName = encodeURIComponent(imageName);
+    const response = await fetch(`${getApiBaseUrl()}/api/readme/${encodedImageName}`, {
+      method: 'DELETE',
+    });
+    
+    return response.ok;
   } catch (e) {
-    console.error('Error deleting README from localStorage:', e);
+    console.error('Error deleting README from API:', e);
     return false;
   }
 }

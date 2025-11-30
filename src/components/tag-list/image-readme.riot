@@ -35,10 +35,13 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
     </div>
     
     <div class="readme-content" if="{ !state.editing }">
-      <div if="{ state.content }" class="readme-rendered">
+      <div if="{ state.loading }" class="readme-loading">
+        <material-spinner></material-spinner>
+      </div>
+      <div if="{ !state.loading && state.content }" class="readme-rendered">
         <div class="markdown-body"></div>
       </div>
-      <div if="{ !state.content }" class="readme-placeholder">
+      <div if="{ !state.loading && !state.content }" class="readme-placeholder">
         <i class="material-icons">article</i>
         <p>No README yet. Click <i class="material-icons inline-icon">edit</i> to add one.</p>
       </div>
@@ -57,15 +60,17 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
           color="inherit"
           waves-color="var(--hover-background)"
           onClick="{ saveReadme }"
+          disabled="{ state.saving }"
         >
           <i class="material-icons">save</i>
-          Save
+          { state.saving ? 'Saving...' : 'Save' }
         </material-button>
         <material-button
           text-color="var(--neutral-text)"
           color="inherit"
           waves-color="var(--hover-background)"
           onClick="{ toggleEdit }"
+          disabled="{ state.saving }"
         >
           Cancel
         </material-button>
@@ -83,25 +88,38 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
           content: '',
           editContent: '',
           editing: false,
+          loading: true,
+          saving: false,
         };
       },
       onMounted(props) {
         this.loadReadme();
       },
       onUpdated(props, state) {
-        if (!state.editing && state.content) {
+        if (!state.editing && state.content && !state.loading) {
           const markdownBody = this.root.querySelector('.markdown-body');
           if (markdownBody) {
             markdownBody.innerHTML = renderMarkdown(state.content);
           }
         }
       },
-      loadReadme() {
-        const content = getReadmeContent(this.props.registryUrl, this.props.image);
-        this.update({
-          content: content || '',
-          editContent: content || '',
-        });
+      async loadReadme() {
+        this.update({ loading: true });
+        try {
+          const content = await getReadmeContent(this.props.registryUrl, this.props.image);
+          this.update({
+            content: content || '',
+            editContent: content || '',
+            loading: false,
+          });
+        } catch (e) {
+          console.error('Error loading README:', e);
+          this.update({
+            content: '',
+            editContent: '',
+            loading: false,
+          });
+        }
       },
       toggleEdit() {
         if (this.state.editing) {
@@ -121,17 +139,27 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
       onEditorInput(e) {
         this.update({ editContent: e.target.value });
       },
-      saveReadme() {
+      async saveReadme() {
         const content = this.state.editContent;
-        const success = saveReadmeContent(this.props.registryUrl, this.props.image, content);
+        this.update({ saving: true });
         
-        if (success) {
-          this.update({
-            content: content,
-            editing: false,
-          });
-          this.props.onNotify('README saved successfully');
-        } else {
+        try {
+          const success = await saveReadmeContent(this.props.registryUrl, this.props.image, content);
+          
+          if (success) {
+            this.update({
+              content: content,
+              editing: false,
+              saving: false,
+            });
+            this.props.onNotify('README saved successfully');
+          } else {
+            this.update({ saving: false });
+            this.props.onNotify('Failed to save README', true);
+          }
+        } catch (e) {
+          console.error('Error saving README:', e);
+          this.update({ saving: false });
           this.props.onNotify('Failed to save README', true);
         }
       },
@@ -172,6 +200,13 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
     
     .readme-content {
       padding: 16px;
+    }
+    
+    .readme-loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 32px;
     }
     
     .readme-placeholder {
