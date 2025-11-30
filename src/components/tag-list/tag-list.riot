@@ -69,12 +69,20 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
     onPageUpdate="{onPageUpdate}"
   ></pagination>
 
+  <image-readme
+    if="{ state.loadend }"
+    registry-url="{ props.registryUrl }"
+    image="{ props.image }"
+    on-notify="{ props.onNotify }"
+  ></image-readme>
+
   <script>
     import { Http } from '../../scripts/http';
     import { DockerImage } from '../../scripts/docker-image';
     import { getNumPages, getPageLabels } from '../../scripts/utils';
     import Pagination from './pagination.riot';
     import TagTable from './tag-table.riot';
+    import ImageReadme from './image-readme.riot';
     import router from '../../scripts/router';
     import { getTagComparator, taglistOrderParser } from '../../scripts/taglist-order';
 
@@ -82,6 +90,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
       components: {
         Pagination,
         TagTable,
+        ImageReadme,
       },
       onBeforeMount(props) {
         this.state = {

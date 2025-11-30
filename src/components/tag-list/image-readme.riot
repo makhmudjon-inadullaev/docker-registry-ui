@@ -1,0 +1,406 @@
+<!--
+Copyright (C) 2016-2023 Jones Magloire @Joxit
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+-->
+<image-readme>
+  <material-card class="readme-card">
+    <div class="readme-header">
+      <h3>
+        <i class="material-icons">description</i>
+        README
+      </h3>
+      <material-button
+        text-color="var(--accent-text)"
+        color="inherit"
+        waves-color="var(--hover-background)"
+        waves-center="true"
+        onClick="{ toggleEdit }"
+        icon
+        title="{ state.editing ? 'Cancel editing' : (state.content ? 'Edit README' : 'Add README') }"
+      >
+        <i class="material-icons">{ state.editing ? 'close' : 'edit' }</i>
+      </material-button>
+    </div>
+    
+    <div class="readme-content" if="{ !state.editing }">
+      <div if="{ state.loading }" class="readme-loading">
+        <material-spinner></material-spinner>
+      </div>
+      <div if="{ !state.loading && state.content }" class="readme-rendered">
+        <div class="markdown-body"></div>
+      </div>
+      <div if="{ !state.loading && !state.content }" class="readme-placeholder">
+        <i class="material-icons">article</i>
+        <p>No README yet. Click <i class="material-icons inline-icon">edit</i> to add one.</p>
+      </div>
+    </div>
+    
+    <div class="readme-editor" if="{ state.editing }">
+      <textarea
+        ref="editor"
+        placeholder="Enter README content in Markdown format..."
+        value="{ state.editContent }"
+        onInput="{ onEditorInput }"
+      ></textarea>
+      <div class="editor-actions">
+        <material-button
+          text-color="var(--primary-text)"
+          color="inherit"
+          waves-color="var(--hover-background)"
+          onClick="{ saveReadme }"
+          disabled="{ state.saving }"
+        >
+          <i class="material-icons">save</i>
+          { state.saving ? 'Saving...' : 'Save' }
+        </material-button>
+        <material-button
+          text-color="var(--neutral-text)"
+          color="inherit"
+          waves-color="var(--hover-background)"
+          onClick="{ toggleEdit }"
+          disabled="{ state.saving }"
+        >
+          Cancel
+        </material-button>
+      </div>
+    </div>
+  </material-card>
+  
+  <script>
+    import { getReadmeContent, saveReadmeContent } from '../../scripts/readme-storage.js';
+    import { renderMarkdown } from '../../scripts/markdown-renderer.js';
+
+    export default {
+      onBeforeMount(props) {
+        this.state = {
+          content: '',
+          editContent: '',
+          editing: false,
+          loading: true,
+          saving: false,
+        };
+      },
+      onMounted(props) {
+        this.loadReadme();
+      },
+      onUpdated(props, state) {
+        if (!state.editing && state.content && !state.loading) {
+          const markdownBody = this.root.querySelector('.markdown-body');
+          if (markdownBody) {
+            markdownBody.innerHTML = renderMarkdown(state.content);
+          }
+        }
+      },
+      async loadReadme() {
+        this.update({ loading: true });
+        try {
+          const content = await getReadmeContent(this.props.registryUrl, this.props.image);
+          this.update({
+            content: content || '',
+            editContent: content || '',
+            loading: false,
+          });
+        } catch (e) {
+          console.error('Error loading README:', e);
+          this.update({
+            content: '',
+            editContent: '',
+            loading: false,
+          });
+        }
+      },
+      toggleEdit() {
+        if (this.state.editing) {
+          // Cancel editing - restore original content
+          this.update({
+            editing: false,
+            editContent: this.state.content,
+          });
+        } else {
+          // Start editing
+          this.update({
+            editing: true,
+            editContent: this.state.content,
+          });
+        }
+      },
+      onEditorInput(e) {
+        this.update({ editContent: e.target.value });
+      },
+      async saveReadme() {
+        const content = this.state.editContent;
+        this.update({ saving: true });
+        
+        try {
+          const success = await saveReadmeContent(this.props.registryUrl, this.props.image, content);
+          
+          if (success) {
+            this.update({
+              content: content,
+              editing: false,
+              saving: false,
+            });
+            this.props.onNotify('README saved successfully');
+          } else {
+            this.update({ saving: false });
+            this.props.onNotify('Failed to save README', true);
+          }
+        } catch (e) {
+          console.error('Error saving README:', e);
+          this.update({ saving: false });
+          this.props.onNotify('Failed to save README', true);
+        }
+      },
+    };
+  </script>
+  
+  <style>
+    image-readme {
+      display: block;
+    }
+    
+    .readme-card {
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .readme-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+    }
+    
+    .readme-header h3 {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--primary-text);
+    }
+    
+    .readme-header h3 .material-icons {
+      color: var(--accent-text);
+    }
+    
+    .readme-content {
+      padding: 16px;
+    }
+    
+    .readme-loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 32px;
+    }
+    
+    .readme-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      color: var(--neutral-text);
+      text-align: center;
+    }
+    
+    .readme-placeholder .material-icons {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+    
+    .readme-placeholder p {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .readme-placeholder .inline-icon {
+      font-size: 18px;
+      vertical-align: middle;
+    }
+    
+    .readme-rendered {
+      min-height: 100px;
+    }
+    
+    .readme-editor {
+      padding: 16px;
+    }
+    
+    .readme-editor textarea {
+      width: 100%;
+      min-height: 200px;
+      padding: 12px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      border-radius: 4px;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 14px;
+      resize: vertical;
+      box-sizing: border-box;
+      background-color: var(--background);
+      color: var(--primary-text);
+    }
+    
+    .readme-editor textarea:focus {
+      outline: none;
+      border-color: var(--accent-text);
+    }
+    
+    .editor-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      justify-content: flex-end;
+    }
+    
+    .editor-actions material-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    /* Markdown styles */
+    .markdown-body {
+      line-height: 1.6;
+      color: var(--primary-text);
+    }
+    
+    .markdown-body h1,
+    .markdown-body h2,
+    .markdown-body h3,
+    .markdown-body h4,
+    .markdown-body h5,
+    .markdown-body h6 {
+      margin-top: 24px;
+      margin-bottom: 16px;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+    
+    .markdown-body h1 {
+      font-size: 2em;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+      padding-bottom: 0.3em;
+    }
+    
+    .markdown-body h2 {
+      font-size: 1.5em;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+      padding-bottom: 0.3em;
+    }
+    
+    .markdown-body h3 {
+      font-size: 1.25em;
+    }
+    
+    .markdown-body p {
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+    
+    .markdown-body code {
+      padding: 0.2em 0.4em;
+      margin: 0;
+      font-size: 85%;
+      background-color: rgba(0, 0, 0, 0.05);
+      border-radius: 3px;
+      font-family: 'Roboto Mono', monospace;
+    }
+    
+    .markdown-body pre {
+      padding: 16px;
+      overflow: auto;
+      font-size: 85%;
+      line-height: 1.45;
+      background-color: rgba(0, 0, 0, 0.05);
+      border-radius: 3px;
+      margin-bottom: 16px;
+    }
+    
+    .markdown-body pre code {
+      padding: 0;
+      margin: 0;
+      font-size: 100%;
+      background-color: transparent;
+      border-radius: 0;
+    }
+    
+    .markdown-body ul,
+    .markdown-body ol {
+      margin-top: 0;
+      margin-bottom: 16px;
+      padding-left: 2em;
+    }
+    
+    .markdown-body li {
+      margin-bottom: 4px;
+    }
+    
+    .markdown-body blockquote {
+      margin: 0 0 16px 0;
+      padding: 0 1em;
+      color: var(--neutral-text);
+      border-left: 0.25em solid rgba(0, 0, 0, 0.12);
+    }
+    
+    .markdown-body a {
+      color: var(--accent-text);
+      text-decoration: none;
+    }
+    
+    .markdown-body a:hover {
+      text-decoration: underline;
+    }
+    
+    .markdown-body img {
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    
+    .markdown-body table {
+      border-spacing: 0;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      width: 100%;
+    }
+    
+    .markdown-body table th,
+    .markdown-body table td {
+      padding: 6px 13px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+    }
+    
+    .markdown-body table th {
+      font-weight: 600;
+      background-color: rgba(0, 0, 0, 0.02);
+    }
+    
+    .markdown-body hr {
+      height: 0.25em;
+      padding: 0;
+      margin: 24px 0;
+      background-color: rgba(0, 0, 0, 0.12);
+      border: 0;
+    }
+  </style>
+</image-readme>

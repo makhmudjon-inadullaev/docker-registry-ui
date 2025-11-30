@@ -8,3 +8,4 @@ _site
 .serve/
 demo/v2
 .version.json
+dist/
