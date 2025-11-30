@@ -28,6 +28,56 @@ const REGISTRY_DATA_PATH = process.env.REGISTRY_DATA_PATH || '/var/lib/registry'
 const REGISTRY_READMES_PATH = process.env.REGISTRY_READMES_PATH || 'docker/registry/v2/repositories';
 const STATIC_DIR = path.resolve(process.env.STATIC_DIR || path.join(__dirname, '../dist'));
 
+// Frontend configuration environment variables (for index.html placeholder substitution)
+const FRONTEND_CONFIG = {
+  DOCKER_REGISTRY_UI_TITLE: process.env.DOCKER_REGISTRY_UI_TITLE || '',
+  REGISTRY_URL: process.env.REGISTRY_URL || '',
+  REGISTRY_TITLE: process.env.REGISTRY_TITLE || '',
+  PULL_URL: process.env.PULL_URL || '',
+  SINGLE_REGISTRY: process.env.SINGLE_REGISTRY || '',
+  CATALOG_ELEMENTS_LIMIT: process.env.CATALOG_ELEMENTS_LIMIT || '',
+  SHOW_CONTENT_DIGEST: process.env.SHOW_CONTENT_DIGEST || '',
+  SHOW_TAG_HISTORY: process.env.SHOW_TAG_HISTORY || '',
+  DEFAULT_REGISTRIES: process.env.DEFAULT_REGISTRIES || '',
+  READ_ONLY_REGISTRIES: process.env.READ_ONLY_REGISTRIES || '',
+  SHOW_CATALOG_NB_TAGS: process.env.SHOW_CATALOG_NB_TAGS || '',
+  HISTORY_CUSTOM_LABELS: process.env.HISTORY_CUSTOM_LABELS || '',
+  USE_CONTROL_CACHE_HEADER: process.env.USE_CONTROL_CACHE_HEADER || '',
+  TAGLIST_ORDER: process.env.TAGLIST_ORDER || '',
+  CATALOG_DEFAULT_EXPANDED: process.env.CATALOG_DEFAULT_EXPANDED || '',
+  CATALOG_MIN_BRANCHES: process.env.CATALOG_MIN_BRANCHES || '',
+  CATALOG_MAX_BRANCHES: process.env.CATALOG_MAX_BRANCHES || '',
+  TAGLIST_PAGE_SIZE: process.env.TAGLIST_PAGE_SIZE || '',
+  REGISTRY_SECURED: process.env.REGISTRY_SECURED || '',
+  DELETE_IMAGES: process.env.DELETE_IMAGES === 'true' ? 'true' : 'false',
+  THEME: process.env.THEME || '',
+  THEME_PRIMARY_TEXT: process.env.THEME_PRIMARY_TEXT || '',
+  THEME_NEUTRAL_TEXT: process.env.THEME_NEUTRAL_TEXT || '',
+  THEME_BACKGROUND: process.env.THEME_BACKGROUND || '',
+  THEME_HOVER_BACKGROUND: process.env.THEME_HOVER_BACKGROUND || '',
+  THEME_ACCENT_TEXT: process.env.THEME_ACCENT_TEXT || '',
+  THEME_HEADER_ACCENT_TEXT: process.env.THEME_HEADER_ACCENT_TEXT || '',
+  THEME_HEADER_TEXT: process.env.THEME_HEADER_TEXT || '',
+  THEME_HEADER_BACKGROUND: process.env.THEME_HEADER_BACKGROUND || '',
+  THEME_FOOTER_TEXT: process.env.THEME_FOOTER_TEXT || '',
+  THEME_FOOTER_NEUTRAL_TEXT: process.env.THEME_FOOTER_NEUTRAL_TEXT || '',
+  THEME_FOOTER_BACKGROUND: process.env.THEME_FOOTER_BACKGROUND || '',
+  ENABLE_VERSION_NOTIFICATION: process.env.ENABLE_VERSION_NOTIFICATION || '',
+};
+
+/**
+ * Replace environment variable placeholders in HTML content
+ * @param {string} html - HTML content with ${VAR_NAME} placeholders
+ * @returns {string} - HTML with placeholders replaced
+ */
+function replaceEnvPlaceholders(html) {
+  let result = html;
+  for (const [key, value] of Object.entries(FRONTEND_CONFIG)) {
+    result = result.replace(new RegExp('\\$\\{' + key + '\\}', 'g'), value);
+  }
+  return result;
+}
+
 // MIME types for static file serving
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -260,14 +310,16 @@ function serveStaticFile(filePath, res) {
       if (err.code === 'ENOENT') {
         // For SPA routing, serve index.html for non-existent paths
         const indexPath = path.join(STATIC_DIR, 'index.html');
-        fs.readFile(indexPath, (indexErr, indexData) => {
+        fs.readFile(indexPath, 'utf8', (indexErr, indexData) => {
           if (indexErr) {
             res.writeHead(404);
             res.end('Not Found');
           } else {
+            // Replace environment variable placeholders in index.html
+            const processedHtml = replaceEnvPlaceholders(indexData);
             res.setHeader('Content-Type', 'text/html');
             res.writeHead(200);
-            res.end(indexData);
+            res.end(processedHtml);
           }
         });
       } else {
@@ -275,9 +327,17 @@ function serveStaticFile(filePath, res) {
         res.end('Internal Server Error');
       }
     } else {
-      res.setHeader('Content-Type', contentType);
-      res.writeHead(200);
-      res.end(data);
+      // For HTML files, replace environment variable placeholders
+      if (ext === '.html') {
+        const processedHtml = replaceEnvPlaceholders(data.toString('utf8'));
+        res.setHeader('Content-Type', contentType);
+        res.writeHead(200);
+        res.end(processedHtml);
+      } else {
+        res.setHeader('Content-Type', contentType);
+        res.writeHead(200);
+        res.end(data);
+      }
     }
   });
 }
